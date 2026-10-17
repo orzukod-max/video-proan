@@ -23,12 +23,36 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Android SDK & Licenses
+        run: |
+          ANDROID_HOME="/usr/local/lib/android/sdk"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+
+          # Ensure cmdline-tools is available (GitHub Actions ubuntu-latest has pre-installed SDK)
+          if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
+            echo "Installing cmdline-tools..."
+            mkdir -p "$ANDROID_HOME/cmdline-tools"
+            curl -sSLo cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            unzip -q cmdline-tools.zip -d "$ANDROID_HOME/cmdline-tools"
+            mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+            rm -f cmdline-tools.zip
+          fi
+
+          # Accept all Android SDK licenses cleanly without relying on deprecated packages
+          echo "Accepting Android SDK licenses..."
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+          # Guarantee standard and preview licenses directory
+          mkdir -p "$ANDROID_HOME/licenses"
+          echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > "$ANDROID_HOME/licenses/android-sdk-license" || true
+          echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_HOME/licenses/android-sdk-preview-license" || true
 
       - name: Prepare Environment and Keystore
         run: |
-          # Ensure .env exists from .env.example if missing
+          # Ensure .env exists from .env.example
           if [ ! -f .env ] && [ -f .env.example ]; then
             cp .env.example .env
           elif [ ! -f .env ]; then
@@ -45,8 +69,8 @@ jobs:
       - name: Grant Execute Permission for Gradlew
         run: chmod +x gradlew
 
-      - name: Build with Gradle
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build Debug APK with Gradle
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
