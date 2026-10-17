@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Hego 3D AI - Virtual Companion</title>
+    
+    <!-- Three.js and GLTFLoader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+    <style>
+        :root {
+            --primary: #38bdf8;
+            --primary-dark: #0284c7;
+            --accent: #2563eb;
+            --bg-dark: #0b1120;
+            --surface: rgba(15, 23, 42, 0.85);
+            --surface-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+        }
+
+        #webgl-canvas {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            display: block;
+        }
+
+        /* --- OVERLAY / SETTINGS MODAL --- */
+        #settings-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50;
+            background: radial-gradient(circle at top, rgba(30, 58, 138, 0.4) 0%, rgba(11, 17, 32, 0.96) 80%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            overflow-y: auto;
+            padding: 24px 18px 40px;
+            transition: opacity 0.3s ease, visibility 0.3s;
+        }
+
+        #settings-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .modal-container {
+            width: 100%;
+            max-width: 480px;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 28px;
+            padding: 24px 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .app-header {
+            text-align: center;
+        }
+
+        .app-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .app-title {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, #ffffff 30%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .app-subtitle {
+            font-size: 13px;
+            color: var(--text-sub);
+            margin-top: 4px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .input-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .input-label span.badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 6px;
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .text-input {
+            width: 100%;
+            height: 48px;
+            padding: 0 14px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 14px;
+            color: #ffffff;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .text-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+        }
+
+        /* File Upload Cards */
+        .file-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1.5px dashed rgba(56, 189, 248, 0.3);
+            border-radius: 16px;
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .file-card:active {
+            transform: scale(0.98);
+        }
+
+        .file-card.loaded {
+            border-color: var(--success);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .file-card-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .file-card-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: rgba(56, 189, 248, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .file-card-texts {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .file-card-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .file-card-status {
+            font-size: 11px;
+            color: var(--text-sub);
+        }
+
+        .file-card-btn {
+            padding: 6px 12px;
+            border-radius: 10px;
+            background: rgba(56, 189, 248, 0.2);
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 600;
+            pointer-events: none;
+        }
+
+        .file-card.loaded .file-card-btn {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        /* Hidden file inputs */
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            width: 100%;
+            height: 52px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--primary-dark) 100%);
+            border: none;
+            border-radius: 16px;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary:disabled {
+            background: #334155;
+            color: #64748b;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            width: 100%;
+            height: 42px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 14px;
+            color: #cbd5e1;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        /* --- VIDEO CALL HUD OVERLAY (In Experience) --- */
+        #hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 16px);
+        }
+
+        .hud-element {
+            pointer-events: auto;
+        }
+
+        /* Top Call Bar */
+        .call-top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .call-status-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 6px 14px;
+            border-radius: 20px;
+        }
+
+        .rec-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--danger);
+            box-shadow: 0 0 8px var(--danger);
+            animation: pulse-dot 1.2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.85); }
+        }
+
+        .call-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+        }
+
+        .call-quality {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .hud-round-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .hud-round-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* Camera State Indicator */
+        .cam-badge {
+            align-self: center;
+            margin-top: 6px;
+            background: rgba(37, 99, 235, 0.85);
+            backdrop-filter: blur(6px);
+            padding: 4px 14px;
+            border-radius: 14px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        /* Subtitle Dialogue Box */
+        .subtitle-container {
+            align-self: center;
+            width: 100%;
+            max-width: 440px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 20px;
+            padding: 14px 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .subtitle-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .subtitle-author {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .author-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        /* Audio Waves */
+        .audio-wave {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            height: 16px;
+        }
+
+        .wave-bar {
+            width: 3px;
+            height: 4px;
+            background: var(--success);
+            border-radius: 2px;
+            transition: height 0.15s ease;
+        }
+
+        .audio-wave.active .wave-bar:nth-child(1) { animation: wave 0.5s infinite 0.1s ease-in-out; }
+        .audio-wave.active .wave-bar:nth-child(2) { animation: wave 0.5s infinite 0.25s ease-in-out; }
+        .audio-wave.active .wave-bar:nth-child(3) { animation: wave 0.5s infinite 0.4s ease-in-out; }
+        .audio-wave.active .wave-bar:nth-child(4) { animation: wave 0.5s infinite 0.15s ease-in-out; }
+
+        @keyframes wave {
+            0%, 100% { height: 4px; }
+            50% { height: 16px; }
+        }
+
+        .subtitle-text {
+            font-size: 14px;
+            color: #ffffff;
+            line-height: 1.45;
+            font-weight: 500;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
+        /* Bottom Controls */
+        .bottom-dock {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+
+        /* Action Chips Row */
+        .chips-row {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 4px;
+            scrollbar-width: none;
+        }
+
+        .chips-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .action-chip {
+            background: rgba(30, 41, 59, 0.85);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            backdrop-filter: blur(6px);
+            padding: 7px 14px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #ffffff;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .action-chip:active {
+            transform: scale(0.94);
+            background: var(--accent);
+        }
+
+        /* Main Mic & Action Dock */
+        .controls-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .mic-btn-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mic-pulse-ring {
+            position: absolute;
+            width: 86px;
+            height: 86px;
+            border-radius: 50%;
+            background: rgba(56, 189, 248, 0.25);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s;
+        }
+
+        .mic-pulse-ring.listening {
+            opacity: 1;
+            animation: pulse-ring 1.5s infinite ease-out;
+            background: rgba(239, 68, 68, 0.35);
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.85); opacity: 0.8; }
+            100% { transform: scale(1.4); opacity: 0; }
+        }
+
+        .mic-button {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.5);
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        .mic-button.listening {
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.5);
+        }
+
+        .mic-button:active {
+            transform: scale(0.92);
+        }
+
+        /* Text Input Bar (Keyboard input option) */
+        .text-input-bar {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 24px;
+            padding: 4px 6px 4px 14px;
+            display: none;
+        }
+
+        .text-input-bar.active {
+            display: flex;
+        }
+
+        .text-input-field {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .text-send-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: none;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        /* Toast notification */
+        #toast {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-60px);
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            color: #ffffff;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            pointer-events: none;
+        }
+
+        #toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Canvas -->
+    <canvas id="webgl-canvas"></canvas>
+
+    <!-- Toast Notification -->
+    <div id="toast">Sozlamalar saqlandi</div>
+
+    <!-- START & SETTINGS SCREEN OVERLAY -->
+    <div id="settings-overlay">
+        <div class="modal-container">
+            <div class="app-header">
+                <div class="app-badge">🤖 VIRTUAL COMPANION</div>
+                <h1 class="app-title">HEGO 3D AI</h1>
+                <p class="app-subtitle">Android Three.js In-World Camera & Gemini 2.5 Flash</p>
+            </div>
+
+            <!-- Gemini API Key -->
+            <div class="input-group">
+                <div class="input-label">
+                    <span>Gemini API Key</span>
+                    <span class="badge">gemini-2.5-flash</span>
+                </div>
+                <input type="password" id="api-key-input" class="text-input" placeholder="AIzaSy..." autocomplete="off">
+            </div>
+
+            <!-- Room Model Selector -->
+            <div class="input-group">
+                <div class="input-label">
+                    <span>Xona Modeli (.glb)</span>
+                    <span id="room-status" class="badge">Tanlanmagan</span>
+                </div>
+                <div class="file-card" id="room-card" onclick="document.getElementById('room-file-input').click()">
+                    <div class="file-card-info">
+                        <div class="file-card-icon">🏠</div>
+                        <div class="file-card-texts">
+                            <span class="file-card-name" id="room-filename">Xona faylini tanlang</span>
+                            <span class="file-card-status">Telefon xotirasidan .glb formatida</span>
+                        </div>
+                    </div>
+                    <span class="file-card-btn">Tanlash</span>
+                </div>
+                <input type="file" id="room-file-input" accept=".glb,.gltf">
+            </div>
+
+            <!-- Character Model Selector -->
+            <div class="input-group">
+                <div class="input-label">
+                    <span>Qahramon Modeli (.glb)</span>
+                    <span id="char-status" class="badge">Tanlanmagan</span>
+                </div>
+                <div class="file-card" id="char-card" onclick="document.getElementById('char-file-input').click()">
+                    <div class="file-card-info">
+                        <div class="file-card-icon">👦</div>
+                        <div class="file-card-texts">
+                            <span class="file-card-name" id="char-filename">Hego qahramon fayli</span>
+                            <span class="file-card-status">Telefon xotirasidan .glb formatida</span>
+                        </div>
+                    </div>
+                    <span class="file-card-btn">Tanlash</span>
+                </div>
+                <input type="file" id="char-file-input" accept=".glb,.gltf">
+            </div>
+
+            <!-- Start Button -->
+            <button id="start-btn" class="btn-primary" onclick="startExperience()">
+                <span>🚀 BOSHLASH (START)</span>
+            </button>
+
+            <!-- Quick Demo Button -->
+            <button class="btn-secondary" onclick="loadDefaultProceduralScene()">
+                <span>✨ Standart 3D Xona & Hego bilan sinash</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- IN-EXPERIENCE VIDEO CALL HUD -->
+    <div id="hud-overlay" style="display: none;">
+        <!-- Top Call Bar -->
+        <div class="hud-element" style="display: flex; flex-direction: column; width: 100%;">
+            <div class="call-top-bar">
+                <div class="call-status-pill">
+                    <div class="rec-dot"></div>
+                    <span class="call-title">HEGO CAM</span>
+                    <span class="call-quality">1080p 60fps</span>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <button class="hud-round-btn" onclick="toggleKeyboardInput()" title="Yozish">💬</button>
+                    <button class="hud-round-btn" onclick="openSettings()" title="Sozlamalar">⚙️</button>
+                </div>
+            </div>
+
+            <!-- Camera Perspective Mode Badge -->
+            <div id="camera-badge" class="cam-badge">
+                📹 Stol Ustidagi Kamera (Tripod)
+            </div>
+        </div>
+
+        <!-- Middle: Subtitles Dialogue Card -->
+        <div class="hud-element subtitle-container">
+            <div class="subtitle-header">
+                <div class="subtitle-author">
+                    <div class="author-dot"></div>
+                    <span>HEGO</span>
+                </div>
+                <div id="audio-wave" class="audio-wave">
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                </div>
+            </div>
+            <div id="subtitle-text" class="subtitle-text">
+                Salom! Men Hego'man. Qo'ng'irog'imiz ulandi, xonamga xush kelibsiz!
+            </div>
+        </div>
+
+        <!-- Bottom Controls Dock -->
+        <div class="hud-element bottom-dock">
+            <!-- Text input bar (expandable) -->
+            <div id="text-input-bar" class="text-input-bar">
+                <input type="text" id="chat-text-input" class="text-input-field" placeholder="Hegoga savol yoki buyruq bering...">
+                <button class="text-send-btn" onclick="sendTextMessage()">➤</button>
+            </div>
+
+            <!-- Quick Action Chips -->
+            <div class="chips-row">
+                <div class="action-chip" onclick="handleQuickAction('PICK_UP_CAMERA', 'Hego, kamerani qo\'lingga olib o\'zingni ko\'rsat!')">📹 Kamerani ol</div>
+                <div class="action-chip" onclick="handleQuickAction('DROP_CAMERA', 'Hego, kamerani stolga qo\'y.')">🪑 Kamerani qo'y</div>
+                <div class="action-chip" onclick="handleQuickAction('MOVE_TO_DESK', 'Hego, stol yoniga bor.')">🚶 Stolga bor</div>
+                <div class="action-chip" onclick="handleQuickAction('LOOK_AROUND', 'Hego, xonangni atrofini ko\'rsat!')">🔄 Xonani ko'rsat</div>
+                <div class="action-chip" onclick="handleQuickAction('IDLE', 'Salom Hego! O\'zing haqingda gapirib ber.')">✨ O'zing haqingda ayt</div>
+                <div class="action-chip" onclick="handleQuickAction('IDLE', 'Bugun havo qanday? Yangiliklar bormi?')">☀️ Yangiliklar bormi?</div>
+            </div>
+
+            <!-- Main Mic Button Row -->
+            <div class="controls-row">
+                <button class="hud-round-btn" onclick="toggleCameraMount()" title="Kamera holati">🔄</button>
+                
+                <div class="mic-btn-container">
+                    <div id="mic-pulse" class="mic-pulse-ring"></div>
+                    <button id="mic-btn" class="mic-button" onclick="toggleVoiceRecording()">
+                        🎙️
+                    </button>
+                </div>
+
+                <button class="hud-round-btn" onclick="sayGreeting()" title="Salom ber">👋</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- IndexedDB Storage Helper -->
+    <script>
+        const DB_NAME = "HegoAppDB";
+        const DB_VERSION = 1;
+        const STORE_NAME = "models_cache";
+
+        function openIndexedDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME);
+                    }
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function saveModelToDB(key, arrayBuffer, fileName) {
+            try {
+                const db = await openIndexedDB();
+                const tx = db.transaction(STORE_NAME, "readwrite");
+                const store = tx.objectStore(STORE_NAME);
+                store.put({ buffer: arrayBuffer, name: fileName }, key);
+            } catch (err) {
+                console.warn("IndexedDB save error:", err);
+            }
+        }
+
+        async function getModelFromDB(key) {
+            try {
+                const db = await openIndexedDB();
+                return new Promise((resolve) => {
+                    const tx = db.transaction(STORE_NAME, "readonly");
+                    const store = tx.objectStore(STORE_NAME);
+                    const req = store.get(key);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => resolve(null);
+                });
+            } catch (err) {
+                return null;
+            }
+        }
+    </script>
+
+    <!-- Main Logic: Three.js, Camera Binding, Web Speech & Gemini -->
+    <script>
+        // --- GLOBAL STATE ---
+        let scene, renderer, camera;
+        let gltfLoader;
+        let roomMesh = null;
+        let characterMesh = null;
+        let characterHandSocket = null;
+        let characterHeadSocket = null;
+        
+        let loadedRoomBuffer = null;
+        let loadedCharacterBuffer = null;
+        let roomFileName = "";
+        let characterFileName = "";
+
+        // Virtual Camera Rig
+        const CAMERA_MODES = {
+            DESK_STAND: "DESK_STAND",
+            HAND_HELD: "HAND_HELD",
+            LOOKING_AROUND: "LOOKING_AROUND"
+        };
+        let currentCameraMode = CAMERA_MODES.DESK_STAND;
+
+        const cameraRig = {
+            currentPos: new THREE.Vector3(-1.6, 1.25, 1.0),
+            currentQuat: new THREE.Quaternion(),
+            targetPos: new THREE.Vector3(-1.6, 1.25, 1.0),
+            targetQuat: new THREE.Quaternion(),
+            deskPosition: new THREE.Vector3(-1.6, 1.25, 1.0),
+            deskLookTarget: new THREE.Vector3(0, 1.1, 0),
+            swayTime: 0,
+            lookAroundAngle: 0
+        };
+
+        // Speech & Gemini state
+        let speechRecognition = null;
+        let isRecording = false;
+        let isSpeaking = false;
+        const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+
+        // Toast
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        // --- 1. LOCAL STORAGE & FILE PICKERS ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            initThree();
+            setupVoiceRecognition();
+
+            // Restore API key
+            const savedKey = localStorage.getItem('hego_gemini_api_key') || "";
+            if (savedKey) {
+                document.getElementById('api-key-input').value = savedKey;
+            }
+
+            // Restore cached models from IndexedDB
+            const cachedRoom = await getModelFromDB('room_glb');
+            if (cachedRoom) {
+                loadedRoomBuffer = cachedRoom.buffer;
+                roomFileName = cachedRoom.name || "Room.glb";
+                document.getElementById('room-filename').innerText = roomFileName;
+                document.getElementById('room-status').innerText = "Keshdan yuklandi";
+                document.getElementById('room-card').classList.add('loaded');
+            }
+
+            const cachedChar = await getModelFromDB('character_glb');
+            if (cachedChar) {
+                loadedCharacterBuffer = cachedChar.buffer;
+                characterFileName = cachedChar.name || "Character.glb";
+                document.getElementById('char-filename').innerText = characterFileName;
+                document.getElementById('char-status').innerText = "Keshdan yuklandi";
+                document.getElementById('char-card').classList.add('loaded');
+            }
+
+            // Room File Picker Listener
+            document.getElementById('room-file-input').addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                roomFileName = file.name;
+                document.getElementById('room-filename').innerText = file.name;
+                document.getElementById('room-status').innerText = "Yuklanmoqda...";
+                
+                const buffer = await file.arrayBuffer();
+                loadedRoomBuffer = buffer;
+                await saveModelToDB('room_glb', buffer, file.name);
+                
+                document.getElementById('room-status').innerText = "Tayyor ✓";
+                document.getElementById('room-card').classList.add('loaded');
+                showToast("Xona modeli tanlandi");
+            });
+
+            // Character File Picker Listener
+            document.getElementById('char-file-input').addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                characterFileName = file.name;
+                document.getElementById('char-filename').innerText = file.name;
+                document.getElementById('char-status').innerText = "Yuklanmoqda...";
+
+                const buffer = await file.arrayBuffer();
+                loadedCharacterBuffer = buffer;
+                await saveModelToDB('character_glb', buffer, file.name);
+
+                document.getElementById('char-status').innerText = "Tayyor ✓";
+                document.getElementById('char-card').classList.add('loaded');
+                showToast("Qahramon modeli tanlandi");
+            });
+
+            // Auto-detect Enter key on text chat
+            document.getElementById('chat-text-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') sendTextMessage();
+            });
+        });
+
+        // --- 2. THREE.JS 3D SCENE SETUP ---
+        function initThree() {
+            const canvas = document.getElementById('webgl-canvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0b1120);
+            scene.fog = new THREE.FogExp2(0x0b1120, 0.04);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.copy(cameraRig.deskPosition);
+
+            renderer = new THREE.WebGLRenderer({
+                canvas: canvas,
+                antialias: true,
+                powerPreference: "high-performance"
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.1;
+
+            gltfLoader = new THREE.GLTFLoader();
+
+            // Lighting
+            const ambient = new THREE.AmbientLight(0xffeedd, 0.7);
+            scene.add(ambient);
+
+            const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
+            sunLight.position.set(4, 5, 3);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 1024;
+            sunLight.shadow.mapSize.height = 1024;
+            sunLight.shadow.bias = -0.0005;
+            scene.add(sunLight);
+
+            const deskLight = new THREE.PointLight(0x38bdf8, 1.0, 6);
+            deskLight.position.set(-1.6, 1.5, 0.8);
+            scene.add(deskLight);
+
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- 3. DYNAMIC GLB MODEL LOADING ---
+        async function loadGLBFromBuffer(arrayBuffer) {
+            return new Promise((resolve, reject) => {
+                gltfLoader.parse(
+                    arrayBuffer,
+                    '',
+                    (gltf) => resolve(gltf),
+                    (err) => reject(err)
+                );
+            });
+        }
+
+        async function startExperience() {
+            const apiKey = document.getElementById('api-key-input').value.trim();
+            if (apiKey) {
+                localStorage.setItem('hego_gemini_api_key', apiKey);
+            }
+
+            // Check if user uploaded models or needs fallback
+            if (!loadedRoomBuffer || !loadedCharacterBuffer) {
+                // If one or both are missing, ask or auto-generate fallback
+                loadDefaultProceduralScene();
+            } else {
+                showToast("3D modellar yuklanmoqda...");
+                try {
+                    // Load Room
+                    if (roomMesh) scene.remove(roomMesh);
+                    const roomGltf = await loadGLBFromBuffer(loadedRoomBuffer);
+                    roomMesh = roomGltf.scene;
+                    
+                    // Auto-center and normalize room size
+                    const box = new THREE.Box3().setFromObject(roomMesh);
+                    const size = box.getSize(new THREE.Vector3());
+                    const center = box.getCenter(new THREE.Vector3());
+                    
+                    roomMesh.position.x -= center.x;
+                    roomMesh.position.z -= center.z;
+                    roomMesh.position.y -= box.min.y; // Align bottom with y = 0
+                    
+                    roomMesh.traverse(child => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    scene.add(roomMesh);
+
+                    // Load Character
+                    if (characterMesh) scene.remove(characterMesh);
+                    const charGltf = await loadGLBFromBuffer(loadedCharacterBuffer);
+                    characterMesh = charGltf.scene;
+                    
+                    // Normalize character height (~1.6m) and place on floor facing camera
+                    const charBox = new THREE.Box3().setFromObject(characterMesh);
+                    const charHeight = charBox.getSize(new THREE.Vector3()).y;
+                    if (charHeight > 0) {
+                        const scaleFactor = 1.6 / charHeight;
+                        characterMesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                    }
+                    characterMesh.position.set(0, 0, 0);
+                    characterMesh.traverse(child => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+
+                    // Find hand socket or create procedural attachment socket
+                    findOrCreateSockets(characterMesh);
+                    scene.add(characterMesh);
+
+                } catch (err) {
+                    console.error("GLB Load Error, falling back to procedural scene:", err);
+                    showToast("GLB xatosi, standart xona ishga tushirildi");
+                    loadDefaultProceduralScene();
+                }
+            }
+
+            // Switch to Experience HUD
+            document.getElementById('settings-overlay').classList.add('hidden');
+            document.getElementById('hud-overlay').style.display = 'flex';
+            
+            // Initial greeting
+            sayGreeting();
+        }
+
+        // Find Bone sockets for Handheld camera
+        function findOrCreateSockets(charScene) {
+            characterHandSocket = null;
+            characterHeadSocket = null;
+
+            charScene.traverse(child => {
+                const name = child.name.toLowerCase();
+                if (!characterHandSocket && (name.includes('hand') && (name.includes('r') || name.includes('right')))) {
+                    characterHandSocket = child;
+                }
+                if (!characterHeadSocket && name.includes('head')) {
+                    characterHeadSocket = child;
+                }
+            });
+
+            // If not found in rig, create procedural socket at shoulder/hand height
+            if (!characterHandSocket) {
+                characterHandSocket = new THREE.Group();
+                characterHandSocket.position.set(0.35, 1.15, 0.45);
+                charScene.add(characterHandSocket);
+            }
+            if (!characterHeadSocket) {
+                characterHeadSocket = new THREE.Group();
+                characterHeadSocket.position.set(0, 1.45, 0);
+                charScene.add(characterHeadSocket);
+            }
+        }
+
+        // --- 4. PROCEDURAL 3D DEMO ROOM & CHARACTER FALLBACK ---
+        function loadDefaultProceduralScene() {
+            showToast("Standart 3D xona va Hego yuklandi");
+
+            // Clean previous
+            if (roomMesh) scene.remove(roomMesh);
+            if (characterMesh) scene.remove(characterMesh);
+
+            roomMesh = new THREE.Group();
+
+            // Parquet floor
+            const floorGeo = new THREE.PlaneGeometry(6, 6);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x85542b, roughness: 0.4 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            roomMesh.add(floor);
+
+            // Carpet
+            const carpet = new THREE.Mesh(
+                new THREE.CircleGeometry(1.6, 32),
+                new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.8 })
+            );
+            carpet.rotation.x = -Math.PI / 2;
+            carpet.position.set(0, 0.01, 0);
+            carpet.receiveShadow = true;
+            roomMesh.add(carpet);
+
+            // Walls
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
+            const backWall = new THREE.Mesh(new THREE.PlaneGeometry(6, 3.5), wallMat);
+            backWall.position.set(0, 1.75, -3);
+            roomMesh.add(backWall);
+
+            const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(6, 3.5), wallMat);
+            leftWall.position.set(-3, 1.75, 0);
+            leftWall.rotation.y = Math.PI / 2;
+            roomMesh.add(leftWall);
+
+            // Study Desk on left
+            const desk = new THREE.Mesh(
+                new THREE.BoxGeometry(1.2, 0.8, 1.8),
+                new THREE.MeshStandardMaterial({ color: 0x5c3a21 })
+            );
+            desk.position.set(-2.0, 0.4, 0.8);
+            desk.castShadow = true;
+            desk.receiveShadow = true;
+            roomMesh.add(desk);
+
+            // Laptop on desk
+            const laptop = new THREE.Mesh(
+                new THREE.BoxGeometry(0.35, 0.03, 0.25),
+                new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8 })
+            );
+            laptop.position.set(-1.8, 0.82, 0.5);
+            roomMesh.add(laptop);
+
+            // Virtual Camera on desk stand
+            const deskCam = new THREE.Mesh(
+                new THREE.BoxGeometry(0.14, 0.1, 0.08),
+                new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2 })
+            );
+            deskCam.position.copy(cameraRig.deskPosition);
+            roomMesh.add(deskCam);
+
+            scene.add(roomMesh);
+
+            // --- BUILD PROCEDURAL HEGO ---
+            characterMesh = new THREE.Group();
+            characterMesh.position.set(0, 0, 0);
+
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdfc4, roughness: 0.6 });
+            const coatMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.5 });
+            const hairMat = new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.8 });
+            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
+            const bootsMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.5 });
+
+            // Body
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.65, 16), coatMat);
+            body.position.set(0, 0.8, 0);
+            body.castShadow = true;
+            characterMesh.add(body);
+
+            // Head
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 20, 20), skinMat);
+            head.position.set(0, 1.35, 0);
+            head.castShadow = true;
+            characterMesh.add(head);
+
+            // Hair
+            const hair = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), hairMat);
+            hair.position.set(0, 1.42, -0.02);
+            characterMesh.add(hair);
+
+            // Eyes
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
+            const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 12), eyeMat);
+            eyeL.position.set(-0.07, 1.37, 0.17);
+            characterMesh.add(eyeL);
+
+            const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 12), eyeMat);
+            eyeR.position.set(0.07, 1.37, 0.17);
+            characterMesh.add(eyeR);
+
+            // Legs
+            const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.5), pantsMat);
+            legL.position.set(-0.1, 0.3, 0);
+            characterMesh.add(legL);
+
+            const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.5), pantsMat);
+            legR.position.set(0.1, 0.3, 0);
+            characterMesh.add(legR);
+
+            // Boots
+            const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.16), bootsMat);
+            bootL.position.set(-0.1, 0.06, 0.03);
+            characterMesh.add(bootL);
+
+            const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.16), bootsMat);
+            bootR.position.set(0.1, 0.06, 0.03);
+            characterMesh.add(bootR);
+
+            // Sockets
+            characterHandSocket = new THREE.Group();
+            characterHandSocket.position.set(0.3, 1.15, 0.3);
+            characterMesh.add(characterHandSocket);
+
+            characterHeadSocket = head;
+
+            scene.add(characterMesh);
+
+            // Open HUD
+            document.getElementById('settings-overlay').classList.add('hidden');
+            document.getElementById('hud-overlay').style.display = 'flex';
+        }
+
+        function openSettings() {
+            document.getElementById('settings-overlay').classList.remove('hidden');
+        }
+
+        // --- 5. CAMERA MECHANICS: DESK TRIPOD vs HANDHELD SELFIE ---
+        function setCameraMode(mode) {
+            currentCameraMode = mode;
+            const badge = document.getElementById('camera-badge');
+
+            if (mode === CAMERA_MODES.HAND_HELD) {
+                badge.innerText = "📱 Hego Qo'lida (Selfie Video Qo'ng'iroq)";
+                badge.style.background = "rgba(16, 185, 129, 0.85)";
+            } else if (mode === CAMERA_MODES.LOOKING_AROUND) {
+                badge.innerText = "🔄 Xonani Aylantirib Ko'rsatish";
+                badge.style.background = "rgba(245, 158, 11, 0.85)";
+            } else {
+                badge.innerText = "📹 Stol Ustidagi Kamera (Tripod)";
+                badge.style.background = "rgba(37, 99, 235, 0.85)";
+            }
+        }
+
+        function toggleCameraMount() {
+            if (currentCameraMode === CAMERA_MODES.DESK_STAND) {
+                setCameraMode(CAMERA_MODES.HAND_HELD);
+                showToast("Kamera Hegoning qo'liga olindi");
+            } else {
+                setCameraMode(CAMERA_MODES.DESK_STAND);
+                showToast("Kamera stolga qo'yildi");
+            }
+        }
+
+        // --- 6. RENDER & CAMERA UPDATE LOOP ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            updateCameraPerspective(delta, time);
+            updateCharacterIdle(time);
+
+            renderer.render(scene, camera);
+        }
+
+        function updateCameraPerspective(delta, time) {
+            if (!camera) return;
+
+            if (currentCameraMode === CAMERA_MODES.HAND_HELD && characterHandSocket) {
+                // Handheld camera attached to Hego's hand
+                const handWorldPos = new THREE.Vector3();
+                characterHandSocket.getWorldPosition(handWorldPos);
+
+                // Add organic handheld sway
+                cameraRig.swayTime += delta * 1.5;
+                const swayX = Math.sin(cameraRig.swayTime * 2.1) * 0.02;
+                const swayY = Math.cos(cameraRig.swayTime * 1.7) * 0.02;
+
+                cameraRig.targetPos.set(
+                    handWorldPos.x + swayX,
+                    handWorldPos.y + 0.1 + swayY,
+                    handWorldPos.z + 0.4
+                );
+
+                // Look at Hego's face
+                const headWorldPos = new THREE.Vector3();
+                if (characterHeadSocket) {
+                    characterHeadSocket.getWorldPosition(headWorldPos);
+                } else {
+                    headWorldPos.set(0, 1.4, 0);
+                }
+
+                const tempCam = camera.clone();
+                tempCam.position.copy(cameraRig.targetPos);
+                tempCam.lookAt(headWorldPos.x, headWorldPos.y - 0.05, headWorldPos.z);
+                cameraRig.targetQuat.copy(tempCam.quaternion);
+
+                // Smooth spring interpolation
+                cameraRig.currentPos.lerp(cameraRig.targetPos, 0.12);
+                cameraRig.currentQuat.slerp(cameraRig.targetQuat, 0.12);
+
+            } else if (currentCameraMode === CAMERA_MODES.LOOKING_AROUND) {
+                // 360 room pan
+                cameraRig.lookAroundAngle += delta * 0.8;
+                cameraRig.targetPos.set(0, 1.4, 0.5);
+
+                const lookTarget = new THREE.Vector3(
+                    Math.sin(cameraRig.lookAroundAngle) * 3,
+                    1.4,
+                    Math.cos(cameraRig.lookAroundAngle) * 3
+                );
+
+                const tempCam = camera.clone();
+                tempCam.position.copy(cameraRig.targetPos);
+                tempCam.lookAt(lookTarget);
+                cameraRig.targetQuat.copy(tempCam.quaternion);
+
+                cameraRig.currentPos.lerp(cameraRig.targetPos, 0.08);
+                cameraRig.currentQuat.slerp(cameraRig.targetQuat, 0.08);
+
+            } else {
+                // Stationary Desk Stand View
+                cameraRig.targetPos.copy(cameraRig.deskPosition);
+
+                const tempCam = camera.clone();
+                tempCam.position.copy(cameraRig.targetPos);
+                tempCam.lookAt(cameraRig.deskLookTarget);
+                cameraRig.targetQuat.copy(tempCam.quaternion);
+
+                cameraRig.currentPos.lerp(cameraRig.targetPos, 0.08);
+                cameraRig.currentQuat.slerp(cameraRig.targetQuat, 0.08);
+            }
+
+            camera.position.copy(cameraRig.currentPos);
+            camera.quaternion.copy(cameraRig.currentQuat);
+        }
+
+        function updateCharacterIdle(time) {
+            if (!characterMesh) return;
+            // Gentle breathing idle
+            characterMesh.position.y = Math.sin(time * 2) * 0.015;
+            if (characterHandSocket && currentCameraMode === CAMERA_MODES.HAND_HELD) {
+                // Slight arm movement holding the camera
+                characterHandSocket.position.x = 0.3 + Math.sin(time * 1.5) * 0.02;
+                characterHandSocket.position.y = 1.15 + Math.cos(time * 1.8) * 0.02;
+            }
+        }
+
+        // --- 7. VOICE RECOGNITION (WEB SPEECH API) ---
+        function setupVoiceRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                console.warn("Speech Recognition not supported in this browser.");
+                return;
+            }
+
+            speechRecognition = new SpeechRecognition();
+            speechRecognition.continuous = false;
+            speechRecognition.interimResults = false;
+            speechRecognition.lang = 'uz-UZ'; // Uzbek language
+
+            speechRecognition.onstart = () => {
+                isRecording = true;
+                document.getElementById('mic-btn').classList.add('listening');
+                document.getElementById('mic-pulse').classList.add('listening');
+                document.getElementById('subtitle-text').innerText = "Sizni eshitmoqdaman...";
+            };
+
+            speechRecognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                console.log("Transcribed:", transcript);
+                document.getElementById('subtitle-text').innerText = `"${transcript}"`;
+                sendToGemini(transcript);
+            };
+
+            speechRecognition.onerror = (event) => {
+                console.warn("Speech recognition error:", event.error);
+                isRecording = false;
+                document.getElementById('mic-btn').classList.remove('listening');
+                document.getElementById('mic-pulse').classList.remove('listening');
+                if (event.error !== 'no-speech') {
+                    showToast("Ovoz aniqlanmadi, qayta urinib ko'ring");
+                }
+            };
+
+            speechRecognition.onend = () => {
+                isRecording = false;
+                document.getElementById('mic-btn').classList.remove('listening');
+                document.getElementById('mic-pulse').classList.remove('listening');
+            };
+        }
+
+        function toggleVoiceRecording() {
+            if (!speechRecognition) {
+                showToast("Brauzeringiz ovozli qidiruvni qo'llab-quvvatlamaydi");
+                toggleKeyboardInput();
+                return;
+            }
+
+            if (isRecording) {
+                speechRecognition.stop();
+            } else {
+                try {
+                    speechRecognition.start();
+                } catch (e) {
+                    speechRecognition.stop();
+                }
+            }
+        }
+
+        function toggleKeyboardInput() {
+            const bar = document.getElementById('text-input-bar');
+            bar.classList.toggle('active');
+            if (bar.classList.contains('active')) {
+                document.getElementById('chat-text-input').focus();
+            }
+        }
+
+        function sendTextMessage() {
+            const input = document.getElementById('chat-text-input');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = "";
+            document.getElementById('text-input-bar').classList.remove('active');
+            document.getElementById('subtitle-text').innerText = `"${text}"`;
+            sendToGemini(text);
+        }
+
+        function handleQuickAction(action, promptText) {
+            document.getElementById('subtitle-text').innerText = `"${promptText}"`;
+            sendToGemini(promptText);
+        }
+
+        // --- 8. GEMINI 2.5 FLASH REST API INTEGRATION ---
+        async function sendToGemini(userPrompt) {
+            const apiKey = localStorage.getItem('hego_gemini_api_key') || document.getElementById('api-key-input').value.trim();
+
+            if (!apiKey) {
+                // Offline rule fallback if API key is not entered
+                handleOfflineFallback(userPrompt);
+                return;
+            }
+
+            document.getElementById('subtitle-text').innerText = "Hego o'ylamoqda...";
+
+            const systemInstruction = `
+                Siz "Hego" ismli, 3D xonada yashovchi do'stona va ongli 3D hamrohsiz.
+                Foydalanuvchi siz bilan jonli video qo'ng'iroq orqali gaplashmoqda.
+                Foydalanuvchining savollariga samimiy va chiroyli o'zbek tilida javob bering.
+                
+                MUHIM: Siz HAR DOIM quyidagi aniq JSON formatida javob qaytarishingiz shart:
+                {
+                    "speech": "O'zbek tilidagi javob matni...",
+                    "action": "PICK_UP_CAMERA" | "DROP_CAMERA" | "MOVE_TO_DESK" | "LOOK_AROUND" | "IDLE"
+                }
+
+                Action qoidalari:
+                - Agar foydalanuvchi "kamerani ol", "o'zingni ko'rsat", "qo'lingga ol" desa -> "PICK_UP_CAMERA"
+                - Agar "kamerani qo'y", "joyiga qo'y", "stolga qo'y", "tashla" desa -> "DROP_CAMERA"
+                - Agar "stolga bor", "kompyuter oldiga bor" desa -> "MOVE_TO_DESK"
+                - Agar "xonangni ko'rsat", "atrofni ko'rsat", "aylantir" desa -> "LOOK_AROUND"
+                - Boshqa suhbatlar va savollarga javob berishda -> "IDLE"
+            `;
+
+            const requestBody = {
+                contents: [
+                    {
+                        role: "user",
+                        parts: [{ text: userPrompt }]
+                    }
+                ],
+                systemInstruction: {
+                    parts: [{ text: systemInstruction }]
+                },
+                generationConfig: {
+                    temperature: 0.7,
+                    responseMimeType: "application/json"
+                }
+            };
+
+            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${DEFAULT_GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Gemini xatosi (${response.status})`);
+                }
+
+                const data = await response.json();
+                const rawJson = data.candidates[0].content.parts[0].text;
+                
+                // Parse decision JSON
+                const cleanedJson = rawJson.replace(/```json/g, '').replace(/```/g, '').trim();
+                const decision = JSON.parse(cleanedJson);
+
+                handleHegoResponse(decision);
+
+            } catch (err) {
+                console.warn("Gemini API call failed, falling back to local logic:", err);
+                handleOfflineFallback(userPrompt);
+            }
+        }
+
+        // Offline logic fallback
+        function handleOfflineFallback(prompt) {
+            const lower = prompt.toLowerCase();
+            let action = "IDLE";
+            let speech = "Salom! Men Hego'man. Siz bilan birga bo'lishdan xursandman!";
+
+            if (lower.includes("ol") || lower.includes("ko'rsat") || lower.includes("pick")) {
+                action = "PICK_UP_CAMERA";
+                speech = "Hozir, kamerani qo'limga olib o'zimni yaxshiroq ko'rsataman!";
+            } else if (lower.includes("qo'y") || lower.includes("drop") || lower.includes("tashla")) {
+                action = "DROP_CAMERA";
+                speech = "Mayli, kamerani stolga qaytarib qo'yaman.";
+            } else if (lower.includes("stol") || lower.includes("desk")) {
+                action = "MOVE_TO_DESK";
+                speech = "Hozir, stol yoniga boraman!";
+            } else if (lower.includes("xona") || lower.includes("atrof") || lower.includes("aylantir") || lower.includes("around")) {
+                action = "LOOK_AROUND";
+                speech = "Mana, xonamning atrofini sizga ko'rsataman!";
+            }
+
+            handleHegoResponse({ speech, action });
+        }
+
+        // --- 9. EXECUTE DECISION & TEXT-TO-SPEECH (TTS) ---
+        function handleHegoResponse(decision) {
+            // 1. Update Subtitle
+            document.getElementById('subtitle-text').innerText = decision.speech;
+
+            // 2. Execute Camera Movement
+            if (decision.action === "PICK_UP_CAMERA") {
+                setCameraMode(CAMERA_MODES.HAND_HELD);
+            } else if (decision.action === "DROP_CAMERA" || decision.action === "PUT_DOWN_CAMERA") {
+                setCameraMode(CAMERA_MODES.DESK_STAND);
+            } else if (decision.action === "MOVE_TO_DESK") {
+                setCameraMode(CAMERA_MODES.DESK_STAND);
+            } else if (decision.action === "LOOK_AROUND") {
+                setCameraMode(CAMERA_MODES.LOOKING_AROUND);
+                setTimeout(() => {
+                    if (currentCameraMode === CAMERA_MODES.LOOKING_AROUND) {
+                        setCameraMode(CAMERA_MODES.HAND_HELD);
+                    }
+                }, 8000);
+            }
+
+            // 3. Browser Speech Synthesis (TTS)
+            speakUtterance(decision.speech);
+        }
+
+        function speakUtterance(text) {
+            if (!('speechSynthesis' in window)) return;
+
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.12; // Cheerful companion voice
+
+            // Look for Uzbek or fallback
+            const voices = window.speechSynthesis.getVoices();
+            const uzVoice = voices.find(v => v.lang.includes('uz') || v.lang.includes('UZ'));
+            if (uzVoice) utterance.voice = uzVoice;
+
+            utterance.onstart = () => {
+                isSpeaking = true;
+                document.getElementById('audio-wave').classList.add('active');
+            };
+
+            utterance.onend = () => {
+                isSpeaking = false;
+                document.getElementById('audio-wave').classList.remove('active');
+            };
+
+            utterance.onerror = () => {
+                isSpeaking = false;
+                document.getElementById('audio-wave').classList.remove('active');
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function sayGreeting() {
+            const greeting = "Salom! Men Hego'man, 3D xonamga xush kelibsiz! Menga ovoz bilan buyruq bering.";
+            handleHegoResponse({
+                speech: greeting,
+                action: "IDLE"
+            });
+        }
+    </script>
+</body>
+</html>

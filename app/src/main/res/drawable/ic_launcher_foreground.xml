@@ -1,0 +1,64 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:translateX="54"
+        android:translateY="54"
+        android:scaleX="0.9"
+        android:scaleY="0.9">
+        <!-- Floating Camera Aperture & Companion Face Ring -->
+        <!-- Boy silhouette head + coat with stylized camera -->
+        <!-- Hair puffs -->
+        <path
+            android:fillColor="#60A5FA"
+            android:pathData="M-18,-18 C-24,-24 -15,-38 0,-38 C15,-38 24,-24 18,-18 C28,-14 30,-2 26,8 C22,18 10,24 0,24 C-10,24 -22,18 -26,8 C-30,-2 -28,-14 -18,-18 Z" />
+        <!-- Face area -->
+        <path
+            android:fillColor="#FEF08A"
+            android:pathData="M-14,-10 C-14,-20 14,-20 14,-10 C14,6 8,14 0,14 C-8,14 -14,6 -14,-10 Z" />
+        <!-- Big expressive Anime/Pixar Eyes -->
+        <path
+            android:fillColor="#1E293B"
+            android:pathData="M-8,-11 C-8,-14 -4,-14 -4,-11 C-4,-8 -8,-8 -8,-11 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-6,-13 C-6,-14 -5,-14 -5,-13 C-5,-12 -6,-12 -6,-13 Z" />
+        <path
+            android:fillColor="#1E293B"
+            android:pathData="M4,-11 C4,-14 8,-14 8,-11 C8,-8 4,-8 4,-11 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M6,-13 C6,-14 7,-14 7,-13 C7,-12 6,-12 6,-13 Z" />
+        <!-- Cute smile -->
+        <path
+            android:fillColor="#E11D48"
+            android:pathData="M-3,-2 Q0,2 3,-2 Z" />
+        <!-- Blue hooded coat collar & body -->
+        <path
+            android:fillColor="#2563EB"
+            android:pathData="M-22,16 C-24,24 -26,36 -24,42 L24,42 C26,36 24,24 22,16 C16,22 -16,22 -22,16 Z" />
+        <!-- Coat trim / folk ornament line -->
+        <path
+            android:strokeColor="#93C5FD"
+            android:strokeWidth="1.5"
+            android:fillColor="#00000000"
+            android:pathData="M-18,22 L18,22 M-20,30 L20,30" />
+        <!-- Conscious Sparkle / Camera badge -->
+        <path
+            android:fillColor="#FBBF24"
+            android:pathData="M18,-24 L21,-20 L25,-21 L22,-17 L24,-13 L20,-14 L17,-11 L17,-15 L13,-17 L17,-19 Z" />
+        <!-- Virtual Video Call Camera badge on bottom right -->
+        <path
+            android:fillColor="#0EA5E9"
+            android:pathData="M10,18 H26 A2,2 0 0 1 28,20 V30 A2,2 0 0 1 26,32 H10 A2,2 0 0 1 8,30 V20 A2,2 0 0 1 10,18 Z" />
+        <path
+            android:fillColor="#38BDF8"
+            android:pathData="M28,22 L34,18 V32 L28,28 Z" />
+        <!-- Camera lens dot -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M18,25 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+    </group>
+</vector>

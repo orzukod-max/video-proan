@@ -1,0 +1,6 @@
+{
+  "name": "Hego AI",
+  "description": "An AI-driven conscious 3D companion living in a virtual room with dynamic camera mechanics and voice interaction.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
