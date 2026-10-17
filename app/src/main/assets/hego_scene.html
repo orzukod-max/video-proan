@@ -116,6 +116,7 @@
     </style>
     <!-- Three.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
     <div id="loading-screen">
@@ -284,25 +285,35 @@
     // ==========================================
     // --- 2. SCENE INITIALIZATION & BUILDER ---
     // ==========================================
+    let gltfLoader = null;
+    let customRoomMesh = null;
+    let customCharacterMesh = null;
+
     function init() {
         const canvas = document.getElementById('webgl-canvas');
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0f172a);
-        scene.fog = new THREE.FogExp2(0x0f172a, 0.035);
+        // Clear pleasant slate background to avoid black screen
+        scene.background = new THREE.Color(0x131d31);
+        scene.fog = new THREE.Fog(0x131d31, 15, 60);
 
         camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 100);
 
         renderer = new THREE.WebGLRenderer({
             canvas: canvas,
             antialias: true,
+            alpha: false,
             powerPreference: "high-performance"
         });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setClearColor(0x131d31, 1.0);
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.05;
+        renderer.toneMappingExposure = 1.25;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+
+        gltfLoader = new THREE.GLTFLoader();
 
         setupLighting();
         buildBedroom();
@@ -332,27 +343,41 @@
     }
 
     function setupLighting() {
-        const ambientLight = new THREE.AmbientLight(0xffeedd, 0.45);
+        // 1. AmbientLight (uniform bright fill to prevent pitch black surfaces)
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
         scene.add(ambientLight);
 
-        const ceilingLight = new THREE.PointLight(0xfff5eb, 1.2, 8);
+        // 2. HemisphereLight (sky/ground bounce)
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x475569, 0.65);
+        hemiLight.position.set(0, 10, 0);
+        scene.add(hemiLight);
+
+        // 3. DirectionalLight (Key illumination with shadows)
+        const sunLight = new THREE.DirectionalLight(0xfff7ed, 1.25);
+        sunLight.position.set(4, 7, 3.5);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 1024;
+        sunLight.shadow.mapSize.height = 1024;
+        sunLight.shadow.bias = -0.0005;
+        scene.add(sunLight);
+
+        // 4. Fill DirectionalLight (Back/fill to eliminate harsh shadows)
+        const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.65);
+        fillLight.position.set(-4, 5, -3);
+        scene.add(fillLight);
+
+        // 5. Ceiling Lamp
+        const ceilingLight = new THREE.PointLight(0xfff5eb, 1.1, 8);
         ceilingLight.position.set(0, 2.9, 0);
         ceilingLight.castShadow = true;
-        ceilingLight.shadow.mapSize.width = 1024;
-        ceilingLight.shadow.mapSize.height = 1024;
         ceilingLight.shadow.bias = -0.002;
         scene.add(ceilingLight);
 
-        const deskLamp = new THREE.PointLight(0x38bdf8, 1.3, 4.5);
+        // 6. Desk Lamp
+        const deskLamp = new THREE.PointLight(0x38bdf8, 1.2, 5);
         deskLamp.position.set(-1.6, 1.45, 0.3);
         deskLamp.castShadow = true;
         scene.add(deskLamp);
-
-        const moonLight = new THREE.DirectionalLight(0x60a5fa, 0.5);
-        moonLight.position.set(3.5, 2.8, -2.5);
-        moonLight.target.position.set(0, 0.8, 0);
-        scene.add(moonLight);
-        scene.add(moonLight.target);
     }
 
     function buildBedroom() {
@@ -1478,6 +1503,116 @@
 
     window.hegoSetCameraMode = function(mode) {
         cameraMode = mode;
+    };
+
+    // --- DYNAMIC GLB MODEL LOADING WITH URL.createObjectURL ---
+    function loadGLBUsingObjectURL(fileOrBlob) {
+        return new Promise((resolve, reject) => {
+            const objectUrl = URL.createObjectURL(fileOrBlob);
+            gltfLoader.load(
+                objectUrl,
+                (gltf) => {
+                    URL.revokeObjectURL(objectUrl);
+                    resolve(gltf);
+                },
+                (xhr) => {
+                    if (xhr.lengthComputable && xhr.total > 0) {
+                        const percent = Math.round((xhr.loaded / xhr.total) * 100);
+                        console.log(`GLB progress: ${percent}%`);
+                    }
+                },
+                (err) => {
+                    URL.revokeObjectURL(objectUrl);
+                    console.error("GLTF load error:", err);
+                    reject(err);
+                }
+            );
+        });
+    }
+
+    window.loadCustomRoom = async function(fileOrBlob) {
+        try {
+            if (customRoomMesh) scene.remove(customRoomMesh);
+            const gltf = await loadGLBUsingObjectURL(fileOrBlob);
+            customRoomMesh = gltf.scene;
+            customRoomMesh.name = "CustomRoom";
+
+            // Center room at (0, 0, 0) and place bottom floor at Y = 0
+            const box = new THREE.Box3().setFromObject(customRoomMesh);
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+
+            customRoomMesh.position.x = -center.x;
+            customRoomMesh.position.z = -center.z;
+            customRoomMesh.position.y = -box.min.y;
+
+            // Auto-scale room if too small or too massive
+            const maxDim = Math.max(size.x, size.y, size.z);
+            if (maxDim > 0 && (maxDim < 1.0 || maxDim > 25.0)) {
+                const scale = 8.0 / maxDim;
+                customRoomMesh.scale.set(scale, scale, scale);
+                const reBox = new THREE.Box3().setFromObject(customRoomMesh);
+                const reCenter = reBox.getCenter(new THREE.Vector3());
+                customRoomMesh.position.x = -reCenter.x;
+                customRoomMesh.position.z = -reCenter.z;
+                customRoomMesh.position.y = -reBox.min.y;
+            }
+
+            customRoomMesh.traverse(child => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    if (child.material) {
+                        child.material.side = THREE.DoubleSide;
+                        child.material.needsUpdate = true;
+                    }
+                }
+            });
+
+            scene.add(customRoomMesh);
+            return true;
+        } catch (e) {
+            console.error("Failed to load custom room:", e);
+            return false;
+        }
+    };
+
+    window.loadCustomCharacter = async function(fileOrBlob) {
+        try {
+            if (customCharacterMesh) scene.remove(customCharacterMesh);
+            const gltf = await loadGLBUsingObjectURL(fileOrBlob);
+            customCharacterMesh = gltf.scene;
+            customCharacterMesh.name = "CustomCharacter";
+
+            // Normalize character height (~1.65m) and place feet on floor (Y = 0)
+            const charBox = new THREE.Box3().setFromObject(customCharacterMesh);
+            const charHeight = charBox.getSize(new THREE.Vector3()).y;
+            if (charHeight > 0) {
+                const scale = 1.65 / charHeight;
+                customCharacterMesh.scale.set(scale, scale, scale);
+            }
+
+            const scaledBox = new THREE.Box3().setFromObject(customCharacterMesh);
+            customCharacterMesh.position.set(0, -scaledBox.min.y, 0);
+            customCharacterMesh.rotation.y = Math.PI * 0.15;
+
+            customCharacterMesh.traverse(child => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    if (child.material) {
+                        child.material.side = THREE.DoubleSide;
+                        child.material.needsUpdate = true;
+                    }
+                }
+            });
+
+            scene.add(customCharacterMesh);
+            return true;
+        } catch (e) {
+            console.error("Failed to load custom character:", e);
+            return false;
+        }
     };
 
     window.hegoSetMood = function(mood) {
